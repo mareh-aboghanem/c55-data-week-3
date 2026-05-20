@@ -25,16 +25,40 @@ def create_tables(conn: sqlite3.Connection) -> None:
         + UNIQUE(station, timestamp) constraint for upserts
     """
     # TODO: use conn.execute() with CREATE TABLE IF NOT EXISTS statements
-    raise NotImplementedError
+    with conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS raw_weather(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            station TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            temperature_c REAL NOT NULL,
+            humidity_pct INTEGER NOT NULL,
+            source TEXT NOT NULL,
+            ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS weather_readings(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            station TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            temperature_c REAL NOT NULL,
+            humidity_pct INTEGER NOT NULL,
+            UNIQUE(station, timestamp))""")
 
 
 def insert_raw(conn: sqlite3.Connection, records: list[dict], source: str) -> None:
     """Insert raw records (before validation) into raw_weather.
 
     Use parameterized queries with placeholder syntax; do not build SQL via string formatting.
-    """
-    # TODO: implement
-    raise NotImplementedError
+    """   
+    rows = [
+        (r["station"], r["timestamp"], r["temperature_c"], r["humidity_pct"],source)
+        for r in records
+    ]
+    conn.executemany("""
+        INSERT INTO raw_weather (station, timestamp, temperature_c, humidity_pct, source)
+        VALUES(?,?,?,?,?)""",
+        rows)
 
 
 def upsert_readings(conn: sqlite3.Connection, readings: list[WeatherReading]) -> None:
@@ -43,11 +67,24 @@ def upsert_readings(conn: sqlite3.Connection, readings: list[WeatherReading]) ->
     Use the upsert pattern to handle duplicate (station, timestamp) pairs.
     Use parameterized queries.
     """
-    # TODO: implement
-    raise NotImplementedError
+    rows = [
+        (r.station, r.timestamp, r.temperature_c, r.humidity_pct)
+        for r in readings
+    ]
+    conn.executemany("""
+        INSERT INTO weather_readings(station, timestamp, temperature_c , humidity_pct)
+        VALUES(?,?,?,?)
+        ON CONFLICT(station, timestamp)DO UPDATE SET
+        temperature_c=excluded.temperature_c,
+        humidity_pct=excluded.humidity_pct
+        """,rows)
 
 
 def count_readings(conn: sqlite3.Connection) -> int:
     """Return the total number of rows in weather_readings."""
-    # TODO: implement
-    raise NotImplementedError
+    cursor=conn.execute("SELECT COUNT(*) FROM weather_readings")
+    row = cursor.fetchone()
+    if row:
+        return row[0]
+    else:
+        return 0

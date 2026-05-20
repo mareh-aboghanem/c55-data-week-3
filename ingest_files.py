@@ -16,5 +16,23 @@ def read_csv_records(path: Path) -> list[dict]:
     - Convert temperature_c to float and humidity_pct to int where possible.
     - Leave unconvertible values (e.g. "N/A", "") as-is so validation can catch them.
     """
-    # TODO: implement CSV reading and normalization
-    raise NotImplementedError
+    with open(path, "r", newline="", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        normalize_row =[]
+        for row in reader:
+            try:
+                temperature_c = float(row.get("temperature_c"))
+            except (ValueError, TypeError):
+                temperature_c = row.get("temperature_c")
+            try:
+                humidity_pct = int(row.get("humidity_pct"))
+            except (ValueError, TypeError):
+                humidity_pct = row.get("humidity_pct")
+            normalize_row.append({
+                "station": row.get("station"),
+                "timestamp": row.get("timestamp"),
+                "temperature_c": temperature_c,
+                "humidity_pct": humidity_pct
+            })
+        return normalize_row
+

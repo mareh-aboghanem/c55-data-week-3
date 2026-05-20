@@ -17,17 +17,31 @@ CSV_PATH = Path("data/weather_stations.csv")
 
 def run_pipeline() -> None:
     OUTPUT_DIR.mkdir(exist_ok=True)
-
-    # TODO — implement each step in order:
-    #
-    # 1. Fetch records from Open-Meteo API using fetch_api_records()
-    # 2. Read records from CSV using read_csv_records(CSV_PATH)
-    # 3. Open a DB connection, create tables, insert all raw records (both sources)
-    # 4. Validate all records — collect valid WeatherReading objects and error dicts
-    # 5. Upsert valid records into weather_readings
-    # 6. Save error dicts as JSON to output/error_report.json
-    # 7. Print the pipeline summary in the format below.
-    #
+    api_fetching = fetch_api_records()
+    csv_reading = read_csv_records(CSV_PATH)
+    db_conn = get_connection()
+    create_tables(db_conn)
+    insert_raw(db_conn, api_fetching, source="API")
+    insert_raw(db_conn, csv_reading, source="CSV")
+    db_conn.commit()
+    api_valid, api_errors = validate_records(api_fetching, source="API")
+    csv_valid, csv_errors = validate_records(csv_reading, source="CSV")
+    all_valid_readings = api_valid + csv_valid
+    all_errors = api_errors + csv_errors
+    upsert_readings(db_conn, all_valid_readings)
+    db_conn.commit()
+    with open(OUTPUT_DIR / "error_report.json", "w") as f:
+        json.dump(all_errors, f, indent=2)
+    total_in_db = count_readings(db_conn)
+    print("=== Pipeline Summary ===")
+    print(f"API records fetched: {len(api_fetching)}")
+    print(f"CSV records read: {len(csv_reading)}")
+    print(f"Total raw records: {len(api_fetching) + len(csv_reading)}")
+    print(f"Valid records: {len(all_valid_readings)}")
+    print(f"Invalid records: {len(all_errors)}")
+    print(f"Records in database: {total_in_db}")
+    print(f"Error report: {OUTPUT_DIR / 'error_report.json'}")
+    db_conn.close()
     # Note: the API count varies by time of day (Open-Meteo returns up to 168 hourly
     # records for 7 forecast days; the exact number depends on the current UTC hour).
     # The CSV contributes 6 invalid records and 4 valid ones; the duplicate Copenhagen
@@ -42,8 +56,6 @@ def run_pipeline() -> None:
     #    Invalid records: 6
     #    Records in database: 169
     #    Error report: output/error_report.json
-
-    raise NotImplementedError
 
 
 if __name__ == "__main__":

@@ -13,5 +13,7 @@ class WeatherReading(BaseModel):
     @field_validator("station")
     @classmethod
     def clean_station(cls, v: str) -> str:
-        # TODO: strip whitespace and convert to title case
-        raise NotImplementedError
+        cleaned= v.strip().title()
+        if not cleaned:
+            raise ValueError("Station name shouldn't be empty!")
+        return cleaned
