@@ -64,11 +64,13 @@ def fetch_api_records() -> list[dict]:
         data = fetch_with_retry(API_URL,params)
         hourly = data.get("hourly",{})
         records = []
+        temperatures = hourly.get("temperature_2m", [])
+        humidities = hourly.get("relative_humidity_2m", [])
         for i, timestamp in enumerate(hourly.get("time",[])):
             records.append({
                 "timestamp": timestamp,
-                "temperature_c": hourly.get("temperature_2m",[])[i],
-                "humidity_pct": hourly.get("relative_humidity_2m",[])[i],
+                "temperature_c": temperatures[i],
+                "humidity_pct": humidities[i],
                 "station": "Open-Meteo Copenhagen",
                 })
 
